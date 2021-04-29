@@ -4,7 +4,7 @@
 #include "rplidar.h"
 #include "Robot.h"
 #include "Communication.h"
-
+//teste
 BufferedSerial pc(SERIAL_TX, SERIAL_RX);
 RPLidar lidar;
 BufferedSerial se_lidar(PA_9, PA_10);
