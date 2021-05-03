@@ -5,7 +5,7 @@
 #include "Robot.h"
 #include "Communication.h"
 //teste
-BufferedSerial pc(SERIAL_TX, SERIAL_RX);
+BufferedSerial pc(USBTX, USBRX);
 RPLidar lidar;
 BufferedSerial se_lidar(PA_9, PA_10);
 PwmOut rplidar_motor(D3);
@@ -45,11 +45,9 @@ int main() {
     
     while(1) {
         // poll for measurements. Returns -1 if no new measurements are available. returns 0 if found one.
-        if(lidar.pollSensorData(&data) == 0)
-        {
-            pc.printf("%f\t%f\t%d\t%c\n", data.distance, data.angle, data.quality, data.startBit); // Prints one lidar measurement.
-        }
-       wait(0.01); 
+
+        getCountsAndReset()
+       wait_us(100); 
     }
 
 
@@ -108,7 +106,7 @@ int main() {
   /////////////////////////////////////////////////////////////////////////////////////////
   
   for( int i = 1;i<=5; i++){
-
+/*
     //velocidades = velocity1(pose_o,pose_atual,vRobot,wRobot);
     //vRobot = velocidades[0];
     //wRobot = velocidades[1];
@@ -132,7 +130,9 @@ int main() {
     //setspeed to que?
 
     printf("Ciclo: %d: vRobot:%f  wRobot:%f\n",i,vRobot,wRobot);
-  }
+
+*/ 
+ }
   
   printf("wrapToPi teste %f\n",atan2(sin(-9.4),cos(-9.4)));
   free(pose_atual);
