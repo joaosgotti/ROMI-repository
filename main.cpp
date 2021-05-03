@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <cstdio>
-//teste
+//testek
 
 BufferedSerial pc(USBTX, USBRX);
 
