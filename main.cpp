@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <cstdio>
-//testek
+//tilt infinito
 
 BufferedSerial pc(USBTX, USBRX);
 
