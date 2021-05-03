@@ -1,14 +1,14 @@
 // Coded by Luís Afonso 11-04-2019
 #include "mbed.h"
 #include "BufferedSerial.h"
-#include "rplidar.h"
 #include "Robot.h"
 #include "Communication.h"
-//teste
+#include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
+#include <cstdio>
+
 BufferedSerial pc(USBTX, USBRX);
-RPLidar lidar;
-BufferedSerial se_lidar(PA_9, PA_10);
-PwmOut rplidar_motor(D3);
 
 
 
@@ -17,6 +17,7 @@ PwmOut rplidar_motor(D3);
 #include <math.h>
 
 #define pi 3.141592654
+#define PPR 1440
 
 
 float *velocity1(float pose_objetivo[3],float pose[3],float v_ant, float w_ant);
@@ -24,33 +25,13 @@ float *velRobot2velWheels(float vRobot, float wRobot, float wheelRadius ,float w
 float *nextPose(float T, float w[2] , float wRobot, float poseRobot[3], float wheelsRadius, float wheelsDistance);
 float *pursuit(float pose[3], float pose_final[3], float map[40][40], float Map_logs[40][40], float old_erro, float obj_pose[2]);
 float VFF(float pose[3], float pose_final[3], float Map[40][40], float Map_logs[40][40]);
-
+float *LRDistance(int countsLeft, int countsRight,float wheelRadius);
 
 int main() {
    
     float odomX, odomY, odomTheta;
-    struct RPLidarMeasurement data;
-    
     pc.set_baud(115200);
     init_communication(&pc);
-
-    // Lidar initialization
-    rplidar_motor.period(0.001f);
-    lidar.begin(se_lidar);
-    lidar.setAngle(0,360);
-
-    pc.printf("Program started.\n");
-        
-    lidar.startThreadScan();
-    
-    while(1) {
-        // poll for measurements. Returns -1 if no new measurements are available. returns 0 if found one.
-
-        getCountsAndReset()
-       wait_us(100); 
-    }
-
-
 
 
   //////////////////////////////////////////////////////////////////////////////// 
@@ -59,14 +40,14 @@ int main() {
   float *pose_o = (float*)calloc(3,sizeof(float));
   float *pose_final = (float*)calloc(3,sizeof(float));
   float *obj_pose = (float*)calloc(2,sizeof(float));
-  pose_atual[0] =  30.3769; 
-  pose_atual[1] = 39.4678;
-  pose_atual[2] =  0.8076;
+  pose_atual[0] =  10; 
+  pose_atual[1] = 10;
+  pose_atual[2] =  0;
   pose_o[0] = 40.5765;
   pose_o[1] = 39.4678;
   pose_o[2] = 0;
-  pose_final[0] = 29.9335;
-  pose_final[1] = 79.8226;
+  pose_final[0] = 40;
+  pose_final[1] = 0;
   pose_final[2] = 0;
  //Para o método pursuit ---> inicializar obj_pose igual à POSE.
   obj_pose[0] = pose_atual[0];
@@ -74,8 +55,8 @@ int main() {
   
   /////////////////////////////////////////////////////////////////////////////
   //PARAMETROS DO ROBOT:
-  float wheelsRadius=2;
-  float wheelsDistance=9;
+  float wheelsRadius=3.5;
+  float wheelsDistance=13;
   float T = 0.1;
 
   ////////////////////////////////////////////////////////////////////////////
@@ -104,9 +85,14 @@ int main() {
       }
   }   
   /////////////////////////////////////////////////////////////////////////////////////////
-  
-  for( int i = 1;i<=5; i++){
-/*
+  //DISTANCIAS:
+    float *Dist = (float*)calloc(2,sizeof(float));
+
+    
+  //////////////////////////////////////////////////////////////////////
+
+  /*for( int i = 1;i<=5; i++){
+
     //velocidades = velocity1(pose_o,pose_atual,vRobot,wRobot);
     //vRobot = velocidades[0];
     //wRobot = velocidades[1];
@@ -131,17 +117,60 @@ int main() {
 
     printf("Ciclo: %d: vRobot:%f  wRobot:%f\n",i,vRobot,wRobot);
 
-*/ 
- }
-  
-  printf("wrapToPi teste %f\n",atan2(sin(-9.4),cos(-9.4)));
+
+ }*/
+    setSpeeds(100,0);
+   /*while(1) {
+        // poll for measurements. Returns -1 if no new measurements are available. returns 0 if found one.
+
+        getCountsAndReset();
+        //setSpeeds(80,80);
+        wait_us(10000); 
+        //printf("Counts Left: %d  CountsRight: %d \n",countsLeft,countsRight);
+        
+        Dist = LRDistance(countsLeft, countsRight, wheelsRadius);
+        //printf("Distancia Left: %.6f,  Distancia Right: %.6f \n", Dist[0], Dist[1]);
+        
+        parametros = pursuit(pose_atual,pose_final,Map,Map_logs,old_erro, obj_pose);
+        vRobot = parametros[0];
+        wRobot = parametros[1];
+        flag = parametros[2];
+        obj_pose[0] = parametros[3];
+        obj_pose[1] = parametros[4];
+        old_erro = parametros[5];
+        //printf(" ciclo: %d obj(1):%f  obj(2):%f   erro: %f\n",i,obj_pose[0],obj_pose[1],old_erro);
+
+        w = velRobot2velWheels(vRobot,wRobot, wheelsRadius, wheelsDistance);
+        pose = nextPose(T,w,wRobot, pose_atual, wheelsRadius, wheelsDistance);
+        pose_atual[0] = pose[0];
+        pose_atual[1] = pose[1];
+        pose_atual[2] = pose[2];
+        setSpeeds(100,0);
+
+
+
+    }
+
+  //printf("wrapToPi teste %f\n",atan2(sin(-9.4),cos(-9.4)));
   free(pose_atual);
   free(pose_o);
   free(velocidades);
   free(w);
   free(pose);
-  return 0;
+  return 0;*/
 }
+
+float *LRDistance(int countsLeft, int countsRight,float wheelRadius){
+   float *Distances = (float*)calloc(2,sizeof(float)); 
+   
+   float DTL = (countsLeft * 2*pi*wheelRadius)/ PPR;
+   float DTR= (countsRight * 2*pi*wheelRadius)/ PPR;
+  
+   Distances[0] = DTL;
+   Distances[1] = DTR;
+   return Distances;
+   
+} 
 
 
 float *velocity1(float pose_objetivo[3],float pose[3],float v_ant, float w_ant){
@@ -224,8 +253,8 @@ float *pursuit(float pose[3], float pose_final[3], float Map[40][40], float Map_
   float pose_errorx = (abs(pose_final[0]- pose[0])/ pose_final[0])*100;
   float pose_errory = (abs(pose_final[1]- pose[1])/ pose_final[1])*100;
   float pose_error = sqrt(pow(pose_errorx,2) +  pow(pose_errory,2));
-
-  float threshold = 1.1;
+  printf("pose error: %.6f: \n", pose_error);
+  float threshold = 10;
 
   if(pose_error < threshold){
     output[0] = vRobot;
@@ -300,7 +329,7 @@ float VFF(float pose[3], float pose_final[3], float Map[40][40], float Map_logs[
   Map[1][1] = 69.3;    
   printf("Map[1][1]: %f\n", Map[1][1]);
 
-  float theta = 0.7;
+  float theta = 0;
   return theta;
 }
 

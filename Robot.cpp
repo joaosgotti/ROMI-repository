@@ -1,7 +1,7 @@
 #include "Robot.h"
 #include "mbed.h"
 
-I2C i2c(I2C_SDA, I2C_SCL );
+I2C i2c(PB_9, PB_8 );
 const int addr8bit = 20 << 1; // 7bit I2C address is 20; 8bit I2C address is 40 (decimal).
 
 int16_t countsLeft = 0;

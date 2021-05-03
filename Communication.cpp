@@ -15,7 +15,7 @@ void write_bytes(char *ptr, unsigned char len)
 {
     for(int i=0; i<len; i++)
     {
-        serial_object->putc(ptr[i]);
+      //  serial_object->pc.putc(ptr[i]);
     }
 }
 
