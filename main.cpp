@@ -8,7 +8,7 @@
 #include <math.h>
 #include <cstdio>
 //joao **
-
+//faz alteraçao
 //mudança23
 BufferedSerial pc(USBTX, USBRX);
 
