@@ -7,7 +7,8 @@
 #include <stdlib.h>
 #include <math.h>
 #include <cstdio>
-//tilt infinito mais de 8000
+//joao
+
 
 BufferedSerial pc(USBTX, USBRX);
 
