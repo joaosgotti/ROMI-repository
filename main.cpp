@@ -7,27 +7,27 @@
 #include <stdlib.h>
 #include <math.h>
 #include <cstdio>
-//joao **
-//faz alteraçao
-//mudança23
+#include <iterator>
+//joao
+
+
 BufferedSerial pc(USBTX, USBRX);
 
-
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <math.h>
 
 #define pi 3.141592654
 #define PPR 1440
 
 
-float *velocity1(float pose_objetivo[3],float pose[3],float v_ant, float w_ant);
+float *velocity1(float *pose,float *pose_objetivo,float v_ant, float w_ant);
 float *velRobot2velWheels(float vRobot, float wRobot, float wheelRadius ,float wheelsDistance);
-float *nextPose(float T, float w[2] , float wRobot, float poseRobot[3], float wheelsRadius, float wheelsDistance);
-float *pursuit(float pose[3], float pose_final[3], float map[40][40], float Map_logs[40][40], float old_erro, float obj_pose[2]);
+float *pursuit(float *pose, float *pose_obj,float Map[40][40], float Map_logs[40][40], float old_erro, float *pose_final);
 float VFF(float pose[3], float pose_final[3], float Map[40][40], float Map_logs[40][40]);
-float *LRDistance(int countsLeft, int countsRight,float wheelRadius);
+float *LRDistance(int countsLeft, int countsRight,float wheelRadius,float wheelsDistance);
+float *nextPoseV2(float *pose,float *Dist);
+float *componentes(float *Dist, float itter_time, float wheelRadius,float wheelsDistance);
+float *map(float *x, float in_min, float in_max, float out_min, float out_max);
+
+int i = 0;
 
 int main() {
    
@@ -38,23 +38,8 @@ int main() {
 
   //////////////////////////////////////////////////////////////////////////////// 
   //POSES DO ROBOT:
-  float *pose_atual = (float*)calloc(3,sizeof(float));
-  float *pose_o = (float*)calloc(3,sizeof(float));
-  float *pose_final = (float*)calloc(3,sizeof(float));
-  float *obj_pose = (float*)calloc(2,sizeof(float));
-  pose_atual[0] =  10; 
-  pose_atual[1] = 10;
-  pose_atual[2] =  0;
-  pose_o[0] = 40.5765;
-  pose_o[1] = 39.4678;
-  pose_o[2] = 0;
-  pose_final[0] = 40;
-  pose_final[1] = 0;
-  pose_final[2] = 0;
- //Para o método pursuit ---> inicializar obj_pose igual à POSE.
-  obj_pose[0] = pose_atual[0];
-  obj_pose[1] = pose_atual[1];
-  
+
+
   /////////////////////////////////////////////////////////////////////////////
   //PARAMETROS DO ROBOT:
   float wheelsRadius=3.5;
@@ -64,12 +49,6 @@ int main() {
   ////////////////////////////////////////////////////////////////////////////
   float vRobot = 0;
   float wRobot = 0;
-  float flag = 0;
-  float *velocidades = (float*)calloc(3,sizeof(float));
-  float *parametros = (float*)calloc(5,sizeof(float));  // para o pursuit apenas
-  float *w = (float*)calloc(2,sizeof(float));
-  float *pose = (float*)calloc(3,sizeof(float));
-  float old_erro = 0;
 
   /////////////////////////////////////////////////////////////////////////////////////
   //Inicializar o mapa e o mapa das log_odds a 0.
@@ -88,112 +67,168 @@ int main() {
   }   
   /////////////////////////////////////////////////////////////////////////////////////////
   //DISTANCIAS:
+     float *pose_atual = (float*)calloc(3,sizeof(float));
+  float *pose_final = (float*)calloc(3,sizeof(float));
+  pose_atual[0] = 0; 
+  pose_atual[1] = 0;
+  pose_atual[2] = 0;
+  pose_final[0] = 200;
+  pose_final[1] = 0;
+  pose_final[2] = 0;
+    
     float *Dist = (float*)calloc(2,sizeof(float));
-
+    float *velocidades = (float*)calloc(4,sizeof(float));
+    float *W_wheels = (float*)calloc(2,sizeof(float));
+    float TDistance;
+    float itter_time = 0.1; //ittertime é igual a 0.1 segundos
+    float theta;
+    float velRobot;
+    float *next_pose = (float*)calloc(3,sizeof(float)); 
+    float *ww = (float*)calloc(2,sizeof(float));
+    float *pose_obj= (float*)calloc(2,sizeof(float));
+    float *parametros = (float*)calloc(6,sizeof(float));  // para o pursuit apenas
     
-  //////////////////////////////////////////////////////////////////////
-
-  /*for( int i = 1;i<=5; i++){
-
-    //velocidades = velocity1(pose_o,pose_atual,vRobot,wRobot);
-    //vRobot = velocidades[0];
-    //wRobot = velocidades[1];
-    //flag = velocidades[2];
     
-    parametros = pursuit(pose_atual,pose_final,Map,Map_logs,old_erro, obj_pose);
-    vRobot = parametros[0];
-    wRobot = parametros[1];
-    flag = parametros[2];
-    obj_pose[0] = parametros[3];
-    obj_pose[1] = parametros[4];
-    old_erro = parametros[5];
-    //printf(" ciclo: %d obj(1):%f  obj(2):%f   erro: %f\n",i,obj_pose[0],obj_pose[1],old_erro);
-  
-    w = velRobot2velWheels(vRobot,wRobot, wheelsRadius, wheelsDistance);
-    pose = nextPose(T,w,wRobot, pose_atual, wheelsRadius, wheelsDistance);
-    pose_atual[0] = pose[0];
-    pose_atual[1] = pose[1];
-    pose_atual[2] = pose[2];
+    pose_obj[0] = pose_atual[0];
+    pose_obj[1] = pose_atual[1];
 
-    //setspeed to que?
+    float D;
+    float deltatheta;
+    float aux;
+    float flag = 0;
 
-    printf("Ciclo: %d: vRobot:%f  wRobot:%f\n",i,vRobot,wRobot);
-
-
- }*/
-    setSpeeds(100,0);
-   /*while(1) {
-        // poll for measurements. Returns -1 if no new measurements are available. returns 0 if found one.
-
+     float old_erro = 0;
+     int i = 1;
+    while(flag==0) {
         getCountsAndReset();
-        //setSpeeds(80,80);
-        wait_us(10000); 
-        //printf("Counts Left: %d  CountsRight: %d \n",countsLeft,countsRight);
+        Dist = LRDistance(countsLeft, countsRight, wheelsRadius,wheelsDistance);
+        //printf("%d %d\n", countsLeft, countsRight);
+       //printf("countsLeft %.2f, countsRight; %.2f", countsLeft, countsRight);
+     //conversao da pose do robot radeanos para graus
+
+        //velocidades = velocity1(pose_atual, pose_final, vRobot, wRobot);
+        //vRobot = velocidades[0];
+        //wRobot = velocidades[1];
+        //flag = velocidades[2]
         
-        Dist = LRDistance(countsLeft, countsRight, wheelsRadius);
-        //printf("Distancia Left: %.6f,  Distancia Right: %.6f \n", Dist[0], Dist[1]);
         
-        parametros = pursuit(pose_atual,pose_final,Map,Map_logs,old_erro, obj_pose);
+        parametros = pursuit(pose_atual, pose_obj, Map, Map_logs, old_erro, pose_final);
         vRobot = parametros[0];
         wRobot = parametros[1];
         flag = parametros[2];
-        obj_pose[0] = parametros[3];
-        obj_pose[1] = parametros[4];
+        pose_obj[0] = parametros[3];
+        pose_obj[1] = parametros[4];
         old_erro = parametros[5];
-        //printf(" ciclo: %d obj(1):%f  obj(2):%f   erro: %f\n",i,obj_pose[0],obj_pose[1],old_erro);
+    
 
-        w = velRobot2velWheels(vRobot,wRobot, wheelsRadius, wheelsDistance);
-        pose = nextPose(T,w,wRobot, pose_atual, wheelsRadius, wheelsDistance);
-        pose_atual[0] = pose[0];
-        pose_atual[1] = pose[1];
-        pose_atual[2] = pose[2];
-        setSpeeds(100,0);
-
-
-
+        ww = velRobot2velWheels(vRobot, wRobot,wheelsRadius , wheelsDistance);
+        //printf(" [%.2f, %.2f] \n",ww[0], ww[1]);
+        W_wheels = map(ww,-15, 15, -100, 100);
+        printf("C:[%d] D:[%.1f]  CountsLeft:[%d] CountsRight:[%d]  Pose_atual: [%.2f, %.2f]   Pose_obj:[%.2f, %.2f] WL,WR:[%.2f , %.2f] Erro:[%.2f]\n",i, Dist[0],countsLeft, countsRight,pose_atual[0], pose_atual[1],pose_obj[0],pose_obj[1], W_wheels[0], W_wheels[1], old_erro);
+        setSpeeds(W_wheels[0], W_wheels[1]);
+        wait_us(100000); //0.1 s
+        next_pose =  nextPoseV2(pose_atual, Dist);
+        pose_atual[0] = next_pose[0];
+        pose_atual[1] = next_pose[1];
+        pose_atual[2] = next_pose[2]; 
+    
+        i = i+1;
     }
+    setSpeeds(0,0);
 
   //printf("wrapToPi teste %f\n",atan2(sin(-9.4),cos(-9.4)));
   free(pose_atual);
-  free(pose_o);
+    free(parametros);
   free(velocidades);
-  free(w);
-  free(pose);
-  return 0;*/
+  free(ww);
+
+  return 0;
 }
 
-float *LRDistance(int countsLeft, int countsRight,float wheelRadius){
+float *LRDistance(int countsLeft, int countsRight,float wheelRadius,float wheelsDistance){
    float *Distances = (float*)calloc(2,sizeof(float)); 
    
-   float DTL = (countsLeft * 2*pi*wheelRadius)/ PPR;
-   float DTR= (countsRight * 2*pi*wheelRadius)/ PPR;
-  
-   Distances[0] = DTL;
-   Distances[1] = DTR;
-   return Distances;
+   float DTL = ((countsLeft * 2*pi*wheelRadius)/ PPR); //Deslocamento da roda esquerda a cada wait
+   float DTR = ((countsRight * 2*pi*wheelRadius)/ PPR); //Deslocamento da roda direita a cada wait 
+   float D = (DTL + DTR) /2;
+   float delta_theta = (DTR - DTL)/wheelsDistance;
    
+   
+   Distances[0] = D;
+   Distances[1] = delta_theta;
+   return Distances;
 } 
 
 
-float *velocity1(float pose_objetivo[3],float pose[3],float v_ant, float w_ant){
-  float *output = (float*)calloc(3,sizeof(float));   // ouput = [v,w,flag].
+float *nextPoseV2(float *pose ,float *Dist){// ???
+    float *next_pose = (float*)calloc(3,sizeof(float)); 
+    float delta_D = Dist[0];
+    float delta_theta  = Dist[1];
   
-  float errox = (abs(pose_objetivo[0]-  pose[0])/pose_objetivo[0])*100;
-  float erroy = (abs(pose_objetivo[0]-  pose[0])/pose_objetivo[0])*100;
-  float erro = sqrt(pow(errox,2) + pow(erroy,2));
-  float threshold = 1.1;
+    next_pose[0] = pose[0] + delta_D*cos(pose[2]) + delta_theta/2;
+    next_pose[1] = pose[1] + delta_D*sin(pose[2]) + delta_theta/2;
+    next_pose[2] = pose[2] + delta_theta;
+    next_pose[2] = atan2(sin(next_pose[2]),cos(next_pose[2]));
+    
+    return next_pose;
+}
 
-  if (errox < threshold){
+float *map(float *w, float in_min, float in_max, float out_min, float out_max) {
+    float *w_saida = (float*)calloc(2,sizeof(float));
+    
+
+    w_saida[0]=  (w[0] - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+    w_saida[1]=  (w[1] - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+
+
+    if(w_saida[0] <35 && w_saida[0] > 0){
+        w_saida[0] = 35;
+    }
+    if(w_saida[1] <35 && w_saida[1] > 0){
+        w_saida[1] = 35;
+    }
+
+     if(w_saida[0] > -35 && w_saida[0] < 0) {
+        w_saida[0] = -35;
+    }
+     if(w_saida[1] > -35 && w_saida[1] < 0){
+        w_saida[1] = -35;
+    }
+
+    if(w[0] > 120){
+        w[0] = 120;
+    }
+
+    if(w[1] > 120){
+        w[1] = 120;
+    }
+    
+
+    return w_saida;
+}
+
+
+float *velocity1(float *pose,float *pose_objetivo,float v_ant, float w_ant){
+  
+  float *output = (float*)calloc(3,sizeof(float));   
+
+  float errox = (abs(pose_objetivo[0]- pose[0]));
+  float erroy = (abs(pose_objetivo[1]- pose[1]));
+  float erro = sqrt(pow(errox,2) + pow(erroy,2));
+  float threshold = 5;
+
+
+  if (erro < threshold){
     output[0] = v_ant;
     output[1] = w_ant;
     output[2] = 1;
   }
   else{
-      float kv = 0.3;
+      float kv = 0.4;
       float kw = 2;
       float v = kv * sqrt(pow(pose_objetivo[0] - pose[0],2) + pow(pose_objetivo[1] - pose[1],2));
       float phi = atan2(pose_objetivo[1] -pose[1],pose_objetivo[0]- pose[0]);
-      float aux = phi -  pose[2];
+      float aux = phi-pose[2];
       float w = kw * atan2(sin(aux),cos(aux));
 
       output[0] = v;
@@ -204,7 +239,6 @@ float *velocity1(float pose_objetivo[3],float pose[3],float v_ant, float w_ant){
 }
 
 
-
 float *velRobot2velWheels(float vRobot, float wRobot, float wheelRadius ,float wheelsDistance){
   float *w = (float*)calloc(2,sizeof(float)); 
   w[0] = (vRobot - (wheelsDistance/2)*wRobot) / wheelRadius;
@@ -213,49 +247,37 @@ float *velRobot2velWheels(float vRobot, float wRobot, float wheelRadius ,float w
 }
 
 
-float *nextPose(float T, float w[2], float wRobot, float poseRobot[3], float wheelsRadius, float wheelsDistance){
+float *pursuit(float *pose, float *pose_obj,float Map[40][40], float Map_logs[40][40], float old_erro, float *pose_final){
+  float *output = (float*)calloc(6,sizeof(float)); 
+  float theta = 0;
   
-  float *pose = (float*)calloc(3,sizeof(float));  
-  pose[0] = poseRobot[0]+(T*wheelsRadius*((w[1]+w[0])/2))*cos(poseRobot[2]+(wRobot*T/2));
-  pose[1] = poseRobot[1]+(T*wheelsRadius*((w[1]+w[0])/2))*sin(poseRobot[2]+(wRobot*T/2));
-  pose[2] = poseRobot[2]+(T*wheelsRadius*(w[1]-w[0]))/wheelsDistance;
-
-  return pose;
-}
-
-
-float *pursuit(float pose[3], float pose_final[3], float Map[40][40], float Map_logs[40][40], float old_erro, float obj_pose[2]){
-  float *output = (float*)calloc(5,sizeof(float)); 
-
-  float theta = VFF(pose,pose_final,Map,Map_logs);
-  //float theta = 0.7;
-  
-  float deltat = 0.01;
+  float deltat = 0.1;
   int dk =3;
   
   float *new_pose_obj = (float*)calloc(2,sizeof(float)); 
 
   //Calculo da nova pose objetivo à custa da posiçao objetivo anterior
-  new_pose_obj[0] = obj_pose[0] + cos(theta)*1;
-  new_pose_obj[1] = obj_pose[1] + sin(theta)*1;
+  new_pose_obj[0] = pose_obj[0] + 0.6*cos(theta);
+  new_pose_obj[1] = pose_obj[1] + 0.6*sin(theta);
 
   //erro integrao
   float novo_erro = sqrt(pow(new_pose_obj[0]- pose[0],2) + pow(new_pose_obj[1]- pose[1],2)) - dk;
-  float erro = novo_erro* deltat + old_erro;
+  float erro = novo_erro*deltat + old_erro;
 
-  float kv = 1.5;
-  float ki = 0.5;
-  float ks = 2;
+//kv = 0.2; ki = 0.1; ks = 1.2; valores otimos 0.6 cos theta
 
-  float vRobot = kv*novo_erro + ki*old_erro;
+  float kv = 0.2;
+  float ki = 0.1;
+  float ks = 1.2;
+
+  float vRobot = kv*novo_erro + ki*erro;
   float aux = atan2(new_pose_obj[1]- pose[1],new_pose_obj[0]- pose[0]) - pose[2];
   float wRobot = ks * atan2(sin(aux),cos(aux));
 
 
-  float pose_errorx = (abs(pose_final[0]- pose[0])/ pose_final[0])*100;
-  float pose_errory = (abs(pose_final[1]- pose[1])/ pose_final[1])*100;
+  float pose_errorx = (abs(pose_final[0]- pose[0]));
+  float pose_errory = (abs(pose_final[1]- pose[1]));
   float pose_error = sqrt(pow(pose_errorx,2) +  pow(pose_errory,2));
-  printf("pose error: %.6f: \n", pose_error);
   float threshold = 10;
 
   if(pose_error < threshold){
